@@ -8,7 +8,7 @@ from data import create_data_module
 from litsr.utils import read_yaml
 from models import create_model, load_model
 
-torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.benchmark = False
 
 
 def train_pipeline(args):
@@ -34,7 +34,19 @@ def train_pipeline(args):
         auto_insert_metric_name=False,
         every_n_epochs=1,
     )
-    device_list = [int(d) for d in args.devices.split(",")]   # e.g. "0,1" → [0,1]
+    # --- CPU LOGIC START ---
+    # Convert "2" (str) to list [2]. If on CPU, we force it to 1 device.
+    if args.accelerator == "cpu":
+        device_list = 1 
+    else:
+        # Check if CUDA is actually available before trying to use it
+        if not torch.cuda.is_available():
+            print("WARNING: CUDA not found. Forcing accelerator to 'cpu'.")
+            args.accelerator = "cpu"
+            device_list = 1
+        else:
+            device_list = [int(d) for d in args.devices.split(",")]
+    # --- CPU LOGIC END ---
 
     trainer_args = {
         "accelerator": args.accelerator,      # "gpu", "cpu", "auto"…
